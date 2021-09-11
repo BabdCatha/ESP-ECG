@@ -1,9 +1,12 @@
-void setup() {
-  // put your setup code here, to run once:
+#include "BluetoothSerial.h"
 
+BluetoothSerial SerialBT;
+
+void setup(){
+  SerialBT.begin("ESP-ECG");
 }
 
-void loop() {
-  // put your main code here, to run repeatedly:
 
+void loop(){
+  SerialBT.println("message");
 }
