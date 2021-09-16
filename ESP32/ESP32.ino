@@ -2,11 +2,31 @@
 
 BluetoothSerial SerialBT;
 
+#define ECG_INPUT 34
+
+//Timing variable
+unsigned long lastMeasure = 0;
+
+short ECGValue = 0;
+
 void setup(){
+  Serial.begin(9600);
   SerialBT.begin("ESP-ECG");
+  lastMeasure = millis();
 }
 
 
 void loop(){
-  SerialBT.println("message");
+
+  if(millis() - 5 > lastMeasure){
+    ECGValue = analogRead(ECG_INPUT);
+    //ECGValue = 35;
+    //SerialBT.println(ECGValue);
+    //SerialBT.write(ECGValue);
+    SerialBT.write(highByte(ECGValue));
+    SerialBT.write(lowByte(ECGValue));
+    SerialBT.write(10); //delimiter
+    Serial.println(ECGValue);
+    lastMeasure = millis();
+  }
 }
