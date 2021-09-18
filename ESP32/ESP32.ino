@@ -10,7 +10,7 @@ unsigned long lastMeasure = 0;
 short ECGValue = 0;
 
 void setup(){
-  Serial.begin(9600);
+  Serial.begin(115200);
   SerialBT.begin("ESP-ECG");
   lastMeasure = millis();
 }
@@ -18,7 +18,7 @@ void setup(){
 
 void loop(){
 
-  if(millis() - 5 > lastMeasure){
+  if(millis() - 2 > lastMeasure){
     ECGValue = analogRead(ECG_INPUT);
     //ECGValue = 35;
     //SerialBT.println(ECGValue);
@@ -26,7 +26,6 @@ void loop(){
     SerialBT.write(highByte(ECGValue));
     SerialBT.write(lowByte(ECGValue));
     SerialBT.write(10); //delimiter
-    Serial.println(ECGValue);
     lastMeasure = millis();
   }
 }
