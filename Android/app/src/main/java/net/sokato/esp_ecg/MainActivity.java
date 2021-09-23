@@ -45,6 +45,8 @@ public class MainActivity extends AppCompatActivity {
     Entry[] dataList = new Entry[points];
     int[] inputs = new int[points];
 
+    final Object mutex = new Object();
+
     int numberOfCoefficients = 5;
     float[] coeffB = {0.00223489f, 0.00893957f, 0.01340935f, 0.00893957f, 0.00223489f};
     float[] coeffA = {1f, -2.69261099f, 2.86739911f, -1.40348467f, 0.26445482f};
@@ -72,6 +74,7 @@ public class MainActivity extends AppCompatActivity {
 
         for(int i = 0; i < points; i++){
             dataList[i] = new Entry(i, 0);
+            inputs[i] = 40;
         }
 
         findBT();
@@ -143,62 +146,62 @@ public class MainActivity extends AppCompatActivity {
                             mmInputStream.read(packetBytes);
                             for(int i=0;i<bytesAvailable;i++) {
                                 byte b = packetBytes[i];
-
-                                if(b == delimiter) {
+                                readBuffer[readBufferPosition++] = b;
+                                if(readBufferPosition == 3) {
                                     byte[] encodedBytes = new byte[readBufferPosition];
                                     System.arraycopy(readBuffer, 0, encodedBytes, 0, encodedBytes.length);
 
                                     final ByteBuffer bb = ByteBuffer.wrap(encodedBytes);
                                     bb.order(ByteOrder.BIG_ENDIAN);
                                     int data = 0;
-                                    if(bb.remaining() == 2) {
+                                    if(bb.remaining() >= 2) {
                                         data = bb.getShort();
-                                    }else{
-                                        data = inputs[(((position-1)%points)+points)%points];
-                                        //Log.e("ass", "ass");
                                     }
 
+                                    final int data2 = data;
+
                                     readBufferPosition = 0;
-                                    inputs[position] = data;
-                                    handler.post(new Runnable() {
-                                        public void run() {
 
-                                            //Add the received data
-                                            try {
+                                    handler.post(() -> {
 
-                                                //Filtering the output
-                                                float valueB = 0f;
-                                                float valueA = 0f;
-                                                for(int i = 1; i < numberOfCoefficients+1; i++){
-                                                    valueB += coeffB[numberOfCoefficients-i] * inputs[(((position-i+1)%points)+points)%points];
-                                                }
-                                                for(int i = 1; i < numberOfCoefficients; i++){
-                                                    valueA += coeffA[numberOfCoefficients-i] * dataList[(((position-i)%points)+points)%points].getY();
-                                                }
+                                        //Add and filter the received data
+                                        /*try {
 
-
-                                                dataList[position] = new Entry(position, (valueB - valueA));
-                                                //Log.e("value", String.valueOf((valueB - valueA)));
-                                            }catch(Exception e){
-                                                dataList[position] = new Entry(position, 10000);
+                                            //Filtering the output
+                                            float valueB = 0f;
+                                            float valueA = 0f;
+                                            for(int i = 1; i < numberOfCoefficients+1; i++){
+                                                valueB += coeffB[numberOfCoefficients-i] * inputs[(((position-i+1)%points)+points)%points];
                                             }
-                                            position++;
-                                            position%=points;
+                                            for(int i = 1; i < numberOfCoefficients; i++){
+                                                valueA += coeffA[numberOfCoefficients-i] * dataList[(((position-i)%points)+points)%points].getY();
+                                            }
 
-                                            LineDataSet dataSet = new LineDataSet(Arrays.asList(dataList.clone()), "ECG");
-                                            dataSet.setColor(ColorTemplate.getHoloBlue());
-                                            dataSet.setDrawCircles(false);
 
-                                            LineData lineData = new LineData(dataSet);
+                                            dataList[position] = new Entry(position, (valueB - valueA));
+                                            //Log.e("value", String.valueOf((valueB - valueA)));
+                                        }catch(Exception e){
+                                            dataList[position] = new Entry(position, 10000);
+                                        }*/
 
-                                            graph.setData(lineData);
-                                            graph.invalidate();
+                                        int tempPos = getPosition();
+                                        inputs[tempPos] = data2;
+                                        dataList[tempPos] = new Entry(tempPos, inputs[position]);
+                                        //Log.e("app", String.valueOf(position));
 
-                                        }
+                                        incrementPosition();
+
+                                        LineDataSet dataSet = new LineDataSet(Arrays.asList(dataList.clone()), "ECG");
+                                        dataSet.setColor(ColorTemplate.getHoloBlue());
+                                        dataSet.setDrawCircles(false);
+
+                                        LineData lineData = new LineData(dataSet);
+
+                                        graph.setData(lineData);
+                                        graph.invalidate();
+
                                     });
-                                }
-                                else {
-                                    readBuffer[readBufferPosition++] = b;
+
                                 }
                             }
                         }
@@ -211,6 +214,15 @@ public class MainActivity extends AppCompatActivity {
         });
 
         workerThread.start();
+    }
+
+    synchronized void incrementPosition(){
+        position++;
+        position%=points;
+    }
+
+    synchronized int getPosition(){
+        return position;
     }
 
 }
