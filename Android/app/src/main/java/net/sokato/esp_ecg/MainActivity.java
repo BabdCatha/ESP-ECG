@@ -36,6 +36,8 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
+import uk.me.berndporr.iirj.Butterworth;
+
 public class MainActivity extends AppCompatActivity {
 
     static int points = 1000;
@@ -43,13 +45,20 @@ public class MainActivity extends AppCompatActivity {
     LineChart graph;
     Description description;
     Entry[] dataList = new Entry[points];
-    int[] inputs = new int[points];
+    //int[] inputs = new int[points];
+    int[] inputs = {0,0,0,0, 0};
+    int[] outputs = {0,0,0,0, 0};
+    int posB = 0;
+    int posA = 0;
+    int filterPos = 0;
+
+    Butterworth butterworth = new Butterworth();
 
     final Object mutex = new Object();
 
-    int numberOfCoefficients = 5;
-    float[] coeffB = {0.00223489f, 0.00893957f, 0.01340935f, 0.00893957f, 0.00223489f};
-    float[] coeffA = {1f, -2.69261099f, 2.86739911f, -1.40348467f, 0.26445482f};
+    int numberOfCoefficients = 3;
+    double[] coeffB = {0.0461318, 0.0922636, 0.0461318};
+    double[] coeffA = {1, -1.30728503, 0.49181224};
 
     int position = 0;
     float timeAxis = 0;
@@ -74,7 +83,7 @@ public class MainActivity extends AppCompatActivity {
 
         for(int i = 0; i < points; i++){
             dataList[i] = new Entry(i, 0);
-            inputs[i] = 40;
+            //inputs[i] = 40;
         }
 
         findBT();
@@ -88,6 +97,8 @@ public class MainActivity extends AppCompatActivity {
         description = graph.getDescription();
         description.setEnabled(false);
         graph.setDescription(description);
+
+        butterworth.lowPass(4, 500, 40);
 
     }
 
@@ -147,7 +158,7 @@ public class MainActivity extends AppCompatActivity {
                             for(int i=0;i<bytesAvailable;i++) {
                                 byte b = packetBytes[i];
                                 readBuffer[readBufferPosition++] = b;
-                                if(readBufferPosition == 3) {
+                                if(readBufferPosition == 2) {
                                     byte[] encodedBytes = new byte[readBufferPosition];
                                     System.arraycopy(readBuffer, 0, encodedBytes, 0, encodedBytes.length);
 
@@ -164,29 +175,10 @@ public class MainActivity extends AppCompatActivity {
 
                                     handler.post(() -> {
 
-                                        //Add and filter the received data
-                                        /*try {
-
-                                            //Filtering the output
-                                            float valueB = 0f;
-                                            float valueA = 0f;
-                                            for(int i = 1; i < numberOfCoefficients+1; i++){
-                                                valueB += coeffB[numberOfCoefficients-i] * inputs[(((position-i+1)%points)+points)%points];
-                                            }
-                                            for(int i = 1; i < numberOfCoefficients; i++){
-                                                valueA += coeffA[numberOfCoefficients-i] * dataList[(((position-i)%points)+points)%points].getY();
-                                            }
-
-
-                                            dataList[position] = new Entry(position, (valueB - valueA));
-                                            //Log.e("value", String.valueOf((valueB - valueA)));
-                                        }catch(Exception e){
-                                            dataList[position] = new Entry(position, 10000);
-                                        }*/
-
                                         int tempPos = getPosition();
-                                        inputs[tempPos] = data2;
-                                        dataList[tempPos] = new Entry(tempPos, inputs[position]);
+                                        //int value = (int)butterworth.filter(data2);
+                                        int value = filter(filter(data2));
+                                        dataList[tempPos] = new Entry(tempPos, value);
                                         //Log.e("app", String.valueOf(position));
 
                                         incrementPosition();
@@ -214,6 +206,33 @@ public class MainActivity extends AppCompatActivity {
         });
 
         workerThread.start();
+    }
+
+    int filter(int input){
+        int res = 0;
+
+        inputs[posB] = input;
+
+        int B = 0;
+        int A = 0;
+
+        for(int i = 0; i < numberOfCoefficients; i++){
+            B += inputs[(posB + i)%numberOfCoefficients] * coeffB[(posB + i)%numberOfCoefficients];
+        }
+        for(int i = 0; i < numberOfCoefficients; i++){
+            A += outputs[(posA + i)%numberOfCoefficients] * coeffA[(posA + i)%numberOfCoefficients];
+        }
+
+        res = B - A;
+
+        outputs[posA] = res;
+
+        posA++;
+        posB++;
+        posA %= numberOfCoefficients;
+        posB %= numberOfCoefficients;
+
+        return res;
     }
 
     synchronized void incrementPosition(){
