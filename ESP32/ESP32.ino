@@ -17,7 +17,7 @@ void setup(){
 
 void loop(){
 
-  if(millis() - 2 > lastMeasure){
+  if(millis() - 5 > lastMeasure){
     ECGValue = analogRead(ECG_INPUT);
     SerialBT.write(highByte(ECGValue));
     SerialBT.write(lowByte(ECGValue));

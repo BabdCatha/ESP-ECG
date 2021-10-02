@@ -40,7 +40,7 @@ import uk.me.berndporr.iirj.Butterworth;
 
 public class MainActivity extends AppCompatActivity {
 
-    static int points = 1000;
+    static int points = 500;
 
     LineChart graph;
     Description description;
@@ -56,9 +56,14 @@ public class MainActivity extends AppCompatActivity {
 
     final Object mutex = new Object();
 
-    int numberOfCoefficients = 3;
-    double[] coeffB = {0.0461318, 0.0922636, 0.0461318};
-    double[] coeffA = {1, -1.30728503, 0.49181224};
+    double a0 = 0.20655953953361905;
+    double a1 = 0.4131190790672381;
+    double a2 = 0.20655953953361905;
+    double b1 = -0.36950493743858204;
+    double b2 = 0.19574309557305825;
+
+    double[] Y = {0, 0};
+    double[] X = {0, 0, 0};
 
     int position = 0;
     float timeAxis = 0;
@@ -96,9 +101,12 @@ public class MainActivity extends AppCompatActivity {
         graph = findViewById(R.id.graph);
         description = graph.getDescription();
         description.setEnabled(false);
+        graph.getAxisLeft().setAxisMinimum(0);
+        graph.getAxisLeft().setAxisMaximum(4096);
+        graph.getAxisRight().setEnabled(false);
         graph.setDescription(description);
 
-        butterworth.lowPass(4, 500, 40);
+        butterworth.lowPass(4, 200, 40);
 
     }
 
@@ -165,7 +173,7 @@ public class MainActivity extends AppCompatActivity {
                                     final ByteBuffer bb = ByteBuffer.wrap(encodedBytes);
                                     bb.order(ByteOrder.BIG_ENDIAN);
                                     int data = 0;
-                                    if(bb.remaining() >= 2) {
+                                    if(bb.remaining() == 2) {
                                         data = bb.getShort();
                                     }
 
@@ -176,8 +184,9 @@ public class MainActivity extends AppCompatActivity {
                                     handler.post(() -> {
 
                                         int tempPos = getPosition();
+                                        //int value = data2;
                                         //int value = (int)butterworth.filter(data2);
-                                        int value = filter(filter(data2));
+                                        int value = filter(data2);
                                         dataList[tempPos] = new Entry(tempPos, value);
                                         //Log.e("app", String.valueOf(position));
 
@@ -209,30 +218,24 @@ public class MainActivity extends AppCompatActivity {
     }
 
     int filter(int input){
-        int res = 0;
+        double res = 0;
 
-        inputs[posB] = input;
+        X[0] = input;
 
-        int B = 0;
-        int A = 0;
+        res += a0*X[0];
+        res += a1*X[1];
+        res += a2*X[2];
+        res += b1*Y[0];
+        res += b2*Y[1];
 
-        for(int i = 0; i < numberOfCoefficients; i++){
-            B += inputs[(posB + i)%numberOfCoefficients] * coeffB[(posB + i)%numberOfCoefficients];
-        }
-        for(int i = 0; i < numberOfCoefficients; i++){
-            A += outputs[(posA + i)%numberOfCoefficients] * coeffA[(posA + i)%numberOfCoefficients];
-        }
+        Y[1] = Y[0];
+        Y[0] = res;
 
-        res = B - A;
+        X[2] = X[1];
+        X[1] = X[0];
 
-        outputs[posA] = res;
+        return (int)res;
 
-        posA++;
-        posB++;
-        posA %= numberOfCoefficients;
-        posB %= numberOfCoefficients;
-
-        return res;
     }
 
     synchronized void incrementPosition(){
